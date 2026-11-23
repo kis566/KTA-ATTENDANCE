@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>KTA · Attendance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0b1120; color: #000;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh; display: flex; justify-content: center; padding: 20px;
+  }
+  .app {
+    width: 100%; max-width: 440px; background: #fff; border-radius: 32px;
+    min-height: calc(100vh - 40px); padding: 28px 22px 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4); position: relative;
+  }
+
+  #loadingScreen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: calc(100vh - 100px); gap: 20px;
+  }
+  .spinner {
+    width: 44px; height: 44px; border: 3px solid #f0f0f0;
+    border-top-color: #000; border-radius: 50%; animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loadingScreen p { font-size: 13px; color: #999; font-weight: 500; }
+
+  #authScreen {
+    display: none; flex-direction: column;
+    min-height: calc(100vh - 100px); justify-content: center;
+  }
+  #authScreen.show { display: flex; animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .auth-brand { text-align: center; margin-bottom: 32px; }
+  .auth-logo {
+    width: 64px; height: 64px; background: #000; border-radius: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 26px; margin-bottom: 18px; letter-spacing: 0.5px;
+  }
+  .auth-brand h1 { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
+  .auth-brand p { font-size: 13px; color: #999; margin-top: 6px; font-weight: 500; }
+
+  /* ===== GOOGLE BUTTON ===== */
+  .google-btn {
+    width: 100%; padding: 15px; background: #fff; color: #000;
+    border: 1.5px solid #e5e5e5; border-radius: 14px;
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all 0.2s; margin-bottom: 16px;
+  }
+  .google-btn:hover { border-color: #000; background: #fafafa; }
+  .google-btn:active { transform: scale(0.98); }
+  .google-btn:disabled { opacity: 0.6; cursor: wait; }
+  .google-btn svg { width: 20px; height: 20px; }
+
+  .divider {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: #f0f0f0;
+  }
+  .divider span {
+    font-size: 10px; font-weight: 700; color: #bbb;
+    letter-spacing: 1.5px; text-transform: uppercase;
+  }
+
+  .auth-tabs {
+    display: flex; background: #fafafa; border-radius: 12px;
+    padding: 4px; margin-bottom: 20px; border: 1px solid #f0f0f0;
+  }
+  .auth-tab {
+    flex: 1; padding: 11px; border-radius: 9px; background: transparent;
+    border: none; font-family: inherit; font-size: 13px; font-weight: 700;
+    color: #999; cursor: pointer; transition: 0.2s;
+  }
+  .auth-tab.active { background: #fff; color: #000; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  .auth-field { margin-bottom: 12px; }
+  .auth-field label {
+    display: block; font-size: 10px; font-weight: 700; color: #999;
+    letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 8px;
+  }
+  .auth-field input {
+    width: 100%; padding: 15px 18px; background: #fafafa;
+    border: 1.5px solid #f0f0f0; border-radius: 14px;
+    font-family: inherit; font-size: 15px; color: #000; outline: none; transition: border 0.2s;
+  }
+  .auth-field input:focus { border-color: #000; background: #fff; }
+  .auth-field input::placeholder { color: #ccc; }
+  .auth-btn {
+    width: 100%; padding: 16px; background: #000; color: #fff;
+    border: none; border-radius: 14px; font-weight: 700; font-size: 14px;
+    cursor: pointer; letter-spacing: 0.5px; margin-top: 6px; transition: 0.15s;
+  }
+  .auth-btn:active { transform: scale(0.98); }
+  .auth-btn:disabled { background: #666; cursor: wait; }
+  .auth-err {
+    color: #ef4444; font-size: 12px; margin-top: 12px;
+    text-align: center; font-weight: 600; min-height: 16px; line-height: 1.4;
+  }
+  .auth-hint {
+    text-align: center; font-size: 11px; color: #999; margin-top: 18px;
+    font-weight: 500; line-height: 1.5;
+  }
+
+  #mainScreen { display: none; }
+  #mainScreen.show { display: block; animation: fadeIn 0.4s ease; }
+
+  .head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid #f0f0f0;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .logo {
+    width: 38px; height: 38px; background: #000; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-weight: 800; font-size: 15px; letter-spacing: 0.5px;
+  }
+  .brand-text h1 { font-size: 17px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.1; }
+  .brand-text p { font-size: 10px; color: #999; font-weight: 500; margin-top: 2px; letter-spacing: 0.5px; }
+  .head-actions { display: flex; gap: 8px; }
+  .ic {
+    width: 40px; height: 40px; border-radius: 50%; background: #fafafa;
+    border: 1px solid #f0f0f0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: #000; transition: all 0.2s;
+  }
+  .ic:active { transform: scale(0.95); }
+  .ic.admin-on { background: #000; border-color: #000; color: #fff; }
+
+  .stats {
+    display: flex; gap: 0; margin-bottom: 24px;
+    padding: 8px 0 20px; border-bottom: 1px solid #f0f0f0;
+  }
+  .stats > div { flex: 1; text-align: center; border-right: 1px solid #f0f0f0; padding: 4px 0; }
+  .stats > div:last-child { border-right: none; }
+  .stats .n { font-size: 30px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; }
+  .stats .l { font-size: 9px; color: #999; font-weight: 700; letter-spacing: 1.2px; margin-top: 6px; text-transform: uppercase; }
+  .stats .g .n { color: #10b981; }
+  .stats .r .n { color: #ef4444; }
+  .stats .a .n { color: #000; }
+
+  .date-line {
+    font-size: 10px; font-weight: 700; color: #999;
+    letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 16px;
+  }
+
+  .admin-bar {
+    background: #000; color: #fff; border-radius: 14px; padding: 12px 16px;
+    display: none; align-items: center; justify-content: space-between;
+    margin-bottom: 16px; animation: slideDown 0.3s;
+  }
+  .admin-bar.show { display: flex; }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+  .admin-bar-left { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+  .admin-bar-left .dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .logout-btn {
+    background: rgba(255,255,255,0.15); color: #fff; padding: 6px 12px;
+    border-radius: 7px; font-size: 10px; font-weight: 700;
+    border: none; cursor: pointer; letter-spacing: 0.5px;
+  }
+
+  .add-row { display: none; gap: 8px; margin-bottom: 20px; }
+  .add-row.show { display: flex; }
+  .add-row input {
+    flex: 1; padding: 13px 16px; background: #fafafa;
+    border: 1.5px solid #f0f0f0; border-radius: 12px;
+    font-family: inherit; font-size: 14px; color: #000; outline: none;
+  }
+  .add-row input:focus { border-color: #000; }
+  .add-row button {
+    padding: 13px 20px; background: #000; color: #fff; border: none;
+    border-radius: 12px; font-weight: 700; font-size: 12px; cursor: pointer; letter-spacing: 0.5px;
+  }
+
+  .date-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+  .date-row label { font-size: 10px; font-weight: 700; color: #999; letter-spacing: 1.2px; text-transform: uppercase; }
+  .date-row input {
+    border: 1.5px solid #f0f0f0; background: #fafafa; border-radius: 10px;
+    padding: 9px 14px; font-family: inherit; font-size: 13px; font-weight: 600;
+    color: #000; outline: none;
+  }
+  .date-row input:focus { border-color: #000; }
+
+  .student {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 0; border-bottom: 1px solid #f5f5f5; animation: fadeIn 0.3s ease;
+  }
+  .student:last-child { border-bottom: none; }
+  .av {
+    width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; letter-spacing: 0.3px; transition: all 0.2s;
+  }
+  .student.p .av { background: #10b981; color: #fff; }
+  .student.a .av { background: #ef4444; color: #fff; }
+  .student:not(.p):not(.a) .av { background: #000; color: #fff; }
+  .info { flex: 1; min-width: 0; }
+  .nm { font-weight: 600; font-size: 14.5px; letter-spacing: -0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st { font-size: 11px; color: #999; margin-top: 3px; font-weight: 500; }
+  .student.p .st { color: #10b981; }
+  .student.a .st { color: #ef4444; }
+
+  .btns { display: flex; gap: 6px; }
+  .bp, .ba {
+    width: 36px; height: 36px; border-radius: 50%; background: #fafafa;
+    border: 1.5px solid #f0f0f0; cursor: pointer;
+    font-weight: 700; font-size: 12px; color: #ccc;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .bp:active, .ba:active { transform: scale(0.9); }
+  .bp.on { background: #10b981; border-color: #10b981; color: #fff; }
+  .ba.on { background: #ef4444; border-color: #ef4444; color: #fff; }
+  .view-btn {
+    width: 36px; height: 36px; border-radius: 50%; background: #fafafa;
+    border: 1.5px solid #f0f0f0; cursor: pointer; color: #000;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .empty { text-align: center; padding: 48px 20px; color: #999; }
+  .empty svg { width: 56px; height: 56px; opacity: 0.3; margin-bottom: 12px; }
+  .empty p { font-size: 13px; font-weight: 500; }
+
+  .fab {
+    width: 100%; padding: 17px; background: #000; color: #fff;
+    font-weight: 700; font-size: 13.5px; border-radius: 16px;
+    border: none; cursor: pointer; letter-spacing: 0.5px;
+    margin-top: 28px; display: none; align-items: center; justify-content: center; transition: 0.15s;
+  }
+  .fab.show { display: flex; }
+  .fab:active { transform: scale(0.98); }
+
+  .timer {
+    background: #fbbf24; color: #000; font-weight: 700; font-size: 12px;
+    padding: 10px 18px; border-radius: 30px;
+    display: none; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 16px; letter-spacing: 0.3px;
+  }
+  .timer.show { display: flex; }
+
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px); display: none; align-items: flex-end;
+    justify-content: center; z-index: 1000;
+  }
+  .overlay.show { display: flex; animation: fadeIn 0.2s ease; }
+  .sheet {
+    background: #fff; border-radius: 28px 28px 0 0;
+    padding: 24px 22px 32px; width: 100%; max-width: 440px;
+    animation: slideUp 0.35s cubic-bezier(0.16,1,0.3,1);
+    max-height: 88vh; overflow-y: auto;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: none; } }
+  .sheet-handle {
+    width: 40px; height: 4px; background: #e5e5e5; border-radius: 2px; margin: 0 auto 18px;
+  }
+  .sheet h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .sheet .sub { font-size: 13px; color: #999; margin-bottom: 22px; font-weight: 500; }
+  .sheet input {
+    width: 100%; padding: 15px 18px; background: #fafafa;
+    border: 1.5px solid #f0f0f0; border-radius: 14px;
+    font-family: inherit; font-size: 15px; color: #000; outline: none; margin-bottom: 12px;
+  }
+  .sheet input:focus { border-color: #000; }
+  .sheet .btn-main {
+    width: 100%; padding: 16px; background: #000; color: #fff;
+    border: none; border-radius: 14px; font-weight: 700; font-size: 14px;
+    cursor: pointer; letter-spacing: 0.5px; margin-top: 4px;
+  }
+  .sheet .btn-main:disabled { background: #666; cursor: wait; }
+  .login-err { color: #ef4444; font-size: 12px; margin-top: 10px; text-align: center; font-weight: 600; min-height: 16px; }
+
+  .detail-head { text-align: center; margin-bottom: 24px; }
+  .detail-head .big-av {
+    width: 72px; height: 72px; border-radius: 50%; background: #000; color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 22px; margin-bottom: 12px; letter-spacing: 0.5px;
+  }
+  .detail-head h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .detail-head p { font-size: 12px; color: #999; margin-top: 3px; font-weight: 500; }
+  .detail-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+  .stat-box {
+    background: #fafafa; border: 1px solid #f0f0f0; border-radius: 14px;
+    padding: 16px; text-align: center;
+  }
+  .stat-box .num { font-size: 26px; font-weight: 800; letter-spacing: -1px; }
+  .stat-box .lbl { font-size: 9px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; font-weight: 600; }
+  .stat-box.g .num { color: #10b981; }
+  .stat-box.r .num { color: #ef4444; }
+  .recent-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+  .recent-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; background: #fafafa; border-radius: 12px; font-size: 13px;
+  }
+  .recent-item .d { font-weight: 600; letter-spacing: -0.2px; }
+  .recent-item .b {
+    padding: 4px 12px; border-radius: 20px; font-size: 10px;
+    font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .b.p { background: #ecfdf5; color: #059669; }
+  .b.a { background: #fef2f2; color: #dc2626; }
+
+  .toast {
+    position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-120px);
+    background: #000; color: #fff; padding: 14px 22px;
+    border-radius: 14px; font-size: 13px; font-weight: 600;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3); z-index: 9999;
+    max-width: 90%; text-align: center; letter-spacing: 0.2px;
+    transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .skeleton {
+    height: 78px; border-radius: 14px; margin-bottom: 8px;
+    background: linear-gradient(90deg, #fafafa 25%, #f0f0f0 50%, #fafafa 75%);
+    background-size: 200% 100%; animation: shimmer 1.2s infinite;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div id="loadingScreen">
+    <div class="spinner"></div>
+    <p>Loading KTA...</p>
+  </div>
+
+  <div id="authScreen">
+    <div class="auth-brand">
+      <div class="auth-logo">K</div>
+      <h1>KTA</h1>
+      <p>Attendance System</p>
+    </div>
+
+    <!-- GOOGLE BUTTON -->
+    <button class="google-btn" id="googleBtn" onclick="googleLogin()">
+      <svg viewBox="0 0 48 48">
+        <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+        <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+        <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+        <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+      </svg>
+      Continue with Google
+    </button>
+
+    <div class="divider"><span>or email</span></div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin" onclick="switchAuth('login')">Login</button>
+      <button class="auth-tab" id="tabSignup" onclick="switchAuth('signup')">Sign Up</button>
+    </div>
+    <div class="auth-field">
+      <label>Email</label>
+      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label>Password</label>
+      <input type="password" id="authPassword" placeholder="Min 6 characters" autocomplete="current-password">
+    </div>
+    <button class="auth-btn" id="authBtn" onclick="handleAuth()">Login</button>
+    <div class="auth-err" id="authErr"></div>
+    <p class="auth-hint">
+      By continuing, you agree to KTA's Terms.<br>
+      Secure login powered by Firebase.
+    </p>
+  </div>
+
+  <div id="mainScreen">
+    <div class="head">
+      <div class="brand">
+        <div class="logo">K</div>
+        <div class="brand-text">
+          <h1>KTA</h1>
+          <p>ATTENDANCE SYSTEM</p>
+        </div>
+      </div>
+      <div class="head-actions">
+        <button class="ic" id="adminBtn" onclick="openLogin()" title="Admin">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        </button>
+        <button class="ic" onclick="signOut()" title="Sign out">
+          <svg width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="admin-bar" id="adminBar">
+      <div class="admin-bar-left"><div class="dot"></div>Admin Mode</div>
+      <button class="logout-btn" onclick="logoutAdmin()">Logout</button>
+    </div>
+    <div class="stats">
+      <div class="g"><div class="n" id="hPresent">0</div><div class="l">Present</div></div>
+      <div class="r"><div class="n" id="hAbsent">0</div><div class="l">Absent</div></div>
+      <div class="a"><div class="n" id="hPending">0</div><div class="l">Pending</div></div>
+    </div>
+    <div class="date-line" id="dateLine">TODAY</div>
+    <div class="date-row">
+      <label>Select Date</label>
+      <input type="date" id="attDate" onchange="loadAttendance()">
+    </div>
+    <div class="add-row" id="addRow">
+      <input type="text" id="studentName" placeholder="Student ka naam..." onkeydown="if(event.key==='Enter')addStudent()">
+      <button onclick="addStudent()">Add</button>
+    </div>
+    <div id="studentList">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+    <button class="fab" id="fab" onclick="completeAttendance()">Complete Attendance</button>
+    <div class="timer" id="timer">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <span id="timerText">Alert in 20:00</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="overlay" id="loginOverlay" onclick="if(event.target===this)closeLogin()">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>Admin Login</h2>
+    <p class="sub">Sirf teacher ke liye</p>
+    <input type="password" id="adminPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-main" id="adminLoginBtn" onclick="doLogin()">Login</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="sheet" id="detailSheet">
+    <div class="sheet-handle"></div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
+
+<script>
+  const API = "https://script.google.com/macros/s/AKfycbzB38ey1rcQjxYJOelYG1tXD0NCP6_Gl0jFu6tmtuiCd5RFjpNIurxbPBO7l4T3hci6/exec";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCuuUwd7TINIAwlLxg-OYjo7Q-1cBsbU5I",
+    authDomain: "codeshalatest.firebaseapp.com",
+    databaseURL: "https://codeshalatest-default-rtdb.firebaseio.com",
+    projectId: "codeshalatest",
+    storageBucket: "codeshalatest.firebasestorage.app",
+    messagingSenderId: "63047132068",
+    appId: "1:63047132068:web:b5eb1269a25ea412ed5731"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const provider = new firebase.auth.GoogleAuthProvider();
+
+  let students = [];
+  let attendance = {};
+  let isAdmin = false;
+  let alertTimer = null;
+  let authMode = "login";
+
+  auth.onAuthStateChanged(user => {
+    document.getElementById("loadingScreen").style.display = "none";
+    if (user) enterApp();
+    else showAuth();
+  });
+
+  function showAuth() {
+    document.getElementById("authScreen").classList.add("show");
+    document.getElementById("mainScreen").classList.remove("show");
+  }
+
+  function enterApp() {
+    document.getElementById("authScreen").classList.remove("show");
+    document.getElementById("mainScreen").classList.add("show");
+    document.getElementById("authPassword").value = "";
+
+    const di = document.getElementById("attDate");
+    di.value = new Date().toISOString().split("T")[0];
+    document.getElementById("dateLine").textContent =
+      "TODAY · " + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase();
+
+    if (localStorage.getItem("kta_admin") === "yes") {
+      isAdmin = true;
+      document.getElementById("adminBar").classList.add("show");
+      document.getElementById("adminBtn").classList.add("admin-on");
+      document.getElementById("addRow").classList.add("show");
+      document.getElementById("fab").classList.add("show");
+    }
+
+    loadAll();
+  }
+
+  // ===== GOOGLE LOGIN =====
+  async function googleLogin() {
+    const btn = document.getElementById("googleBtn");
+    const err = document.getElementById("authErr");
+    err.textContent = "";
+    btn.disabled = true;
+    try {
+      await auth.signInWithPopup(provider);
+      // onAuthStateChanged handle karega
+    } catch (e) {
+      btn.disabled = false;
+      let msg = e.message;
+      if (e.code === "auth/popup-closed-by-user") msg = "Popup band ho gaya. Dobara try karo.";
+      else if (e.code === "auth/popup-blocked") msg = "Popup block hua. Browser settings check karo.";
+      else if (e.code === "auth/cancelled-popup-request") msg = "Cancel ho gaya.";
+      else if (e.code === "auth/operation-not-allowed") msg = "Firebase mein Google Sign-In enable karo.";
+      else if (e.code === "auth/unauthorized-domain") msg = "Domain authorized nahi hai. Firebase console check karo.";
+      err.textContent = msg;
+    }
+  }
+
+  function switchAuth(mode) {
+    authMode = mode;
+    document.getElementById("tabLogin").classList.toggle("active", mode === "login");
+    document.getElementById("tabSignup").classList.toggle("active", mode === "signup");
+    document.getElementById("authBtn").textContent = mode === "login" ? "Login" : "Create Account";
+    document.getElementById("authErr").textContent = "";
+  }
+
+  async function handleAuth() {
+    const email = document.getElementById("authEmail").value.trim();
+    const password = document.getElementById("authPassword").value;
+    const err = document.getElementById("authErr");
+    const btn = document.getElementById("authBtn");
+
+    err.textContent = "";
+    if (!email || !email.includes("@")) { err.textContent = "Sahi email daalo"; return; }
+    if (password.length < 6) { err.textContent = "Password min 6 characters"; return; }
+
+    btn.disabled = true;
+    btn.textContent = authMode === "login" ? "Logging in..." : "Creating account...";
+
+    try {
+      if (authMode === "signup") {
+        await auth.createUserWithEmailAndPassword(email, password);
+      } else {
+        await auth.signInWithEmailAndPassword(email, password);
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = authMode === "login" ? "Login" : "Create Account";
+      let msg = e.message;
+      if (e.code === "auth/user-not-found") msg = "Account nahi mila. Sign Up karo.";
+      else if (e.code === "auth/wrong-password") msg = "Galat password";
+      else if (e.code === "auth/invalid-credential") msg = "Email ya password galat";
+      else if (e.code === "auth/email-already-in-use") msg = "Email already registered. Login karo.";
+      else if (e.code === "auth/weak-password") msg = "Password kamzor hai (min 6)";
+      else if (e.code === "auth/invalid-email") msg = "Email galat format";
+      else if (e.code === "auth/network-request-failed") msg = "Network error. Internet check karo.";
+      err.textContent = msg;
+    }
+  }
+
+  function signOut() {
+    if (!confirm("Logout karna hai?")) return;
+    auth.signOut().then(() => {
+      localStorage.removeItem("kta_admin");
+      isAdmin = false;
+      location.reload();
+    });
+  }
+
+  // ===== API =====
+  async function apiGet(p) {
+    const r = await fetch(API + "?" + new URLSearchParams(p));
+    return r.json();
+  }
+  async function apiPost(b) {
+    const r = await fetch(API, { method: "POST", body: JSON.stringify(b), headers: { "Content-Type": "text/plain;charset=utf-8" } });
+    return r.json();
+  }
+
+  async function loadStudents() {
+    const d = await apiGet({ action: "getStudents" });
+    if (d.ok) students = d.students;
+  }
+  async function loadAttendance() {
+    document.getElementById("studentList").innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+    const d = await apiGet({ action: "getAttendance", date: document.getElementById("attDate").value });
+    attendance = d.ok ? d.attendance : {};
+    render();
+  }
+  async function loadAll() { await loadStudents(); await loadAttendance(); }
+
+  function initials(n) { return n.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase(); }
+
+  function render() {
+    const wrap = document.getElementById("studentList");
+    if (students.length === 0) {
+      wrap.innerHTML = `<div class="empty">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <p>Koi student nahi hai</p>
+      </div>`;
+      updateStats();
+      return;
+    }
+    wrap.innerHTML = students.map(name => {
+      const s = attendance[name];
+      const cls = s === "P" ? "p" : s === "A" ? "a" : "";
+      const txt = s === "P" ? "Present" : s === "A" ? "Absent" : "Not marked";
+      const safe = name.replace(/'/g, "\\'");
+      const right = isAdmin ? `
+        <div class="btns">
+          <button class="bp ${s==='P'?'on':''}" onclick="mark('${safe}','P')">P</button>
+          <button class="ba ${s==='A'?'on':''}" onclick="mark('${safe}','A')">A</button>
+        </div>` : `
+        <button class="view-btn" onclick="openDetail('${safe}')">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>`;
+      return `<div class="student ${cls}">
+        <div class="av">${initials(name)}</div>
+        <div class="info"><div class="nm">${name}</div><div class="st">${txt}</div></div>
+        ${right}
+      </div>`;
+    }).join("");
+    updateStats();
+  }
+
+  function updateStats() {
+    const p = students.filter(n => attendance[n] === "P").length;
+    const a = students.filter(n => attendance[n] === "A").length;
+    const u = students.length - p - a;
+    document.getElementById("hPresent").textContent = p;
+    document.getElementById("hAbsent").textContent = a;
+    document.getElementById("hPending").textContent = u;
+  }
+
+  async function mark(name, status) {
+    attendance[name] = status;
+    render();
+    await apiPost({ action: "saveAttendance", date: document.getElementById("attDate").value, records: { [name]: status } });
+  }
+
+  async function completeAttendance() {
+    if (students.length === 0) return toast("Pehle students add karo");
+    const un = students.filter(n => !attendance[n]);
+    if (un.length > 0) return toast(`${un.length} students pending`);
+    const d = await apiPost({ action: "saveAttendance", date: document.getElementById("attDate").value, records: attendance });
+    if (!d.ok) return toast("Save fail");
+    toast("✅ Attendance Complete");
+    startTimer(20);
+  }
+
+  function startTimer(min) {
+    const t = document.getElementById("timer");
+    const tx = document.getElementById("timerText");
+    t.classList.add("show");
+    const end = Date.now() + min * 60 * 1000;
+    if (window._ti) clearInterval(window._ti);
+    if (alertTimer) clearTimeout(alertTimer);
+    window._ti = setInterval(() => {
+      const rem = Math.max(0, Math.round((end - Date.now()) / 1000));
+      const m = Math.floor(rem / 60), s = rem % 60;
+      tx.textContent = `Alert in ${m}:${s.toString().padStart(2,"0")}`;
+      if (rem <= 0) clearInterval(window._ti);
+    }, 1000);
+    alertTimer = setTimeout(() => {
+      const abs = students.filter(n => attendance[n] === "A");
+      if (abs.length === 0) toast("Sab present hain 🎉");
+      else toast(abs.map(n => `${n} absent`).join(" · "));
+      t.classList.remove("show");
+    }, min * 60 * 1000);
+  }
+
+  function openLogin() {
+    if (isAdmin) return;
+    document.getElementById("loginOverlay").classList.add("show");
+    setTimeout(() => document.getElementById("adminPass").focus(), 100);
+  }
+  function closeLogin() {
+    document.getElementById("loginOverlay").classList.remove("show");
+    document.getElementById("adminPass").value = "";
+    document.getElementById("loginErr").textContent = "";
+    document.getElementById("adminLoginBtn").disabled = false;
+    document.getElementById("adminLoginBtn").textContent = "Login";
+  }
+  async function doLogin() {
+    const pass = document.getElementById("adminPass").value;
+    const err = document.getElementById("loginErr");
+    const btn = document.getElementById("adminLoginBtn");
+    err.textContent = "Checking...";
+    btn.disabled = true;
+    const d = await apiPost({ action: "adminLogin", password: pass });
+    btn.disabled = false;
+    if (d.ok) {
+      isAdmin = true;
+      localStorage.setItem("kta_admin", "yes");
+      document.getElementById("adminBar").classList.add("show");
+      document.getElementById("adminBtn").classList.add("admin-on");
+      document.getElementById("addRow").classList.add("show");
+      document.getElementById("fab").classList.add("show");
+      closeLogin();
+      render();
+      toast("Welcome, Admin");
+    } else {
+      err.textContent = d.error || "Galat password";
+    }
+  }
+  function logoutAdmin() {
+    isAdmin = false;
+    localStorage.removeItem("kta_admin");
+    document.getElementById("adminBar").classList.remove("show");
+    document.getElementById("adminBtn").classList.remove("admin-on");
+    document.getElementById("addRow").classList.remove("show");
+    document.getElementById("fab").classList.remove("show");
+    render();
+    toast("Admin logout ho gaya");
+  }
+
+  async function addStudent() {
+    const el = document.getElementById("studentName");
+    const n = el.value.trim();
+    if (!n) return toast("Naam likho");
+    const d = await apiPost({ action: "addStudent", name: n });
+    if (d.ok) { el.value = ""; await loadStudents(); render(); toast("Student added"); }
+    else toast(d.error || "Error");
+  }
+
+  async function openDetail(name) {
+    document.getElementById("detailBody").innerHTML = '<div class="skeleton" style="height:100px;"></div><div class="skeleton" style="height:120px;"></div>';
+    document.getElementById("detailOverlay").classList.add("show");
+    const d = await apiGet({ action: "getStudentAttendance", name });
+    if (!d.ok) {
+      document.getElementById("detailBody").innerHTML = `<p style="text-align:center;color:#ef4444;padding:20px;">${d.error || "Error"}</p>`;
+      return;
+    }
+    const s = d.stats;
+    const rec = d.recent || [];
+    let h = `<div class="detail-head">
+      <div class="big-av">${initials(name)}</div>
+      <h3>${name}</h3>
+      <p>Attendance Report</p>
+    </div>
+    <div class="detail-stats">
+      <div class="stat-box g"><div class="num">${s.monthPresent}</div><div class="lbl">Present · Month</div></div>
+      <div class="stat-box r"><div class="num">${s.monthAbsent}</div><div class="lbl">Absent · Month</div></div>
+      <div class="stat-box"><div class="num">${s.monthPercent}%</div><div class="lbl">This Month</div></div>
+      <div class="stat-box"><div class="num">${s.totalPercent}%</div><div class="lbl">Overall</div></div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:#999;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Recent</div>
+    <div class="recent-list">`;
+    if (rec.length === 0) h += `<p style="text-align:center;color:#999;padding:16px;font-size:13px;">No records yet</p>`;
+    else rec.forEach(r => {
+      const c = r.status === "P" ? "p" : "a";
+      const t = r.status === "P" ? "Present" : "Absent";
+      h += `<div class="recent-item"><span class="d">${r.date}</span><span class="b ${c}">${t}</span></div>`;
+    });
+    h += `</div>`;
+    document.getElementById("detailBody").innerHTML = h;
+  }
+  function closeDetail() { document.getElementById("detailOverlay").classList.remove("show"); }
+
+  function toast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(window._toastT);
+    window._toastT = setTimeout(() => t.classList.remove("show"), 3000);
+  }
+</script>
+</body>
+</html>
